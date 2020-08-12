@@ -91,7 +91,7 @@ def add_pick(conn, data):
     conn.commit()
     return cur.lastrowid
 
-def update_live_scores(conn, gameweek):
+def update_live_scores(conn, gameweek, userId, bboostActive):
     sql = ''' REPLACE INTO live_table (
                 gameweek, user_id, event_total
             ) select 
@@ -105,12 +105,14 @@ def update_live_scores(conn, gameweek):
             where 
                 live_player_points.gameweek = ?
             and
-                picks.position <= 11
+                picks.user_id = ?
+            and
+                picks.position <= ?
             group by 
                 live_player_points.gameweek, picks.user_id '''
-    print(sql)
     cur = conn.cursor()
-    cur.execute(sql, [gameweek])
+    playerLimit = 15 if bboostActive else 11
+    cur.execute(sql, [gameweek, userId, playerLimit])
     conn.commit()
     return cur.lastrowid
     
