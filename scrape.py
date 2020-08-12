@@ -3,6 +3,7 @@ import aiohttp
 import argparse
 
 from fpl import FPL
+from fpl.utils import get_current_gameweek
 
 from db import create_connection, add_pick, create_picks_table, create_player_points_table, add_live_points, create_live_table, update_live_scores
 
@@ -27,9 +28,10 @@ async def load_user_picks(conn, users, gameweek):
         #print(vars(userObj))
         userPicks = await userObj.get_picks(gameweek)
         #print(userPicks)
-        for pick in userPicks[gameweek]:
-            data = [gameweek, userObj.id, pick["element"], pick["position"], pick["multiplier"], pick["is_captain"], pick["is_vice_captain"]]
-            add_pick(conn, data)
+        if userPicks:
+            for pick in userPicks[gameweek]:
+                data = [gameweek, userObj.id, pick["element"], pick["position"], pick["multiplier"], pick["is_captain"], pick["is_vice_captain"]]
+                add_pick(conn, data)
 
 async def load_player_points(conn, fpl, gameweek):
     gameweekObj = await fpl.get_gameweek(gameweek, include_live=True, return_json=False)
@@ -43,20 +45,25 @@ async def load_player_points(conn, fpl, gameweek):
         
 async def update_user_points(conn, users, gameweek):
     for userObj in users:
-        #print(userObj)
+        #print(vars(userObj))
+        
+        autoSubsArr = []
+        autoSubObjArr = await userObj.get_automatic_substitutions(gameweek)
+        if autoSubObjArr:
+            for autoSubObj in autoSubObjArr:
+                autoSubsArr.append(autoSubObj["element_in"])
+        
         userActiveChips = await userObj.get_active_chips(gameweek)
         #print(userActiveChips)
-        update_live_scores(conn, gameweek, userObj.id, userActiveChips == 'bboost')
+        update_live_scores(conn, gameweek, userObj.id, autoSubsArr, userActiveChips == 'bboost')
 
 
 async def main():
     parser = argparse.ArgumentParser(description='EliteFPL Scraper')
     parser.add_argument('email', type=str, help='FPL Email Address')
     parser.add_argument('password', type=str, help='FPL Password')
+    parser.add_argument('--gameweek', type=int, default=0, help='Set the current gameweek')
     args = parser.parse_args()
-    
-    #we need to get this dynamically
-    gameweek = 47
     
     try:
         database = "/tmp/fplsqlite.db"
@@ -73,8 +80,13 @@ async def main():
         leagueObj = await fpl.get_classic_league(345)
         #print(leagueObj)
         
-        users = await load_users(fpl, leagueObj, gameweek)
+        if args.gameweek > 0:
+            gameweek = args.gameweek
+        else:
+            gameweek = await get_current_gameweek(fpl.session)
                 
+        users = await load_users(fpl, leagueObj, gameweek)
+        
         #we only need to do this once per week, asap after game updates
         await load_user_picks(conn, users, gameweek)
         
