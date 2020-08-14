@@ -114,6 +114,8 @@ def update_live_scores(conn, gameweek, userId, autoSubsArr, bboostActive):
                 
     cur = conn.cursor()
     playerLimit = 15 if bboostActive else 11
+    if autoSubsArr:
+        print("sql subs %s " % ','.join(str(v) for v in autoSubsArr))
     cur.execute(sql, [gameweek, userId, playerLimit, ','.join(str(v) for v in autoSubsArr)])
     conn.commit()
     return cur.lastrowid

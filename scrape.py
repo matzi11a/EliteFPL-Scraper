@@ -51,16 +51,16 @@ async def load_live_points(conn, data):
     for playerId in data:
         add_live_points(conn, data[playerId])
     
-async def update_user_points(conn, users, gameweek):
+async def update_user_points(conn, users, gameweek, subs):
     for userObj in users:
         #print(vars(userObj))
         
-        autoSubsArr = []
-        autoSubObjArr = await userObj.get_automatic_substitutions(gameweek)
-        if autoSubObjArr:
-            for autoSubObj in autoSubObjArr:
-                autoSubsArr.append(autoSubObj["element_in"])
-                print("subs arr %s %s" % (userObj.id, autoSubObj))
+        autoSubsArr = list(subs[userObj.id].keys()) 
+        #autoSubObjArr = await userObj.get_automatic_substitutions(gameweek)
+        #if autoSubObjArr:
+        #    for autoSubObj in autoSubObjArr:
+        #        autoSubsArr.append(autoSubObj["element_in"])
+        #        print("subs arr %s %s" % (userObj.id, autoSubObj))
         
         userActiveChips = await userObj.get_active_chips(gameweek)
         #print(userActiveChips)
@@ -108,7 +108,7 @@ async def _calc_auto_subs(fpl, users, gameweek, playerData):
 
     #for pid, fixtureFinished in tmp.items():
     #    playerData[pid].append(fixtureFinished)
-    
+    userSubs = {}
     for userObj in users:
         #print(vars(userObj))
         userPicks = await userObj.get_picks(gameweek)
@@ -123,6 +123,8 @@ async def _calc_auto_subs(fpl, users, gameweek, playerData):
                     sub = await get_sub(playerId, subs, userPicks[gameweek])
                     if (sub > 0):
                         subs[sub] = True
+            userSubs[userObj.id] = subs
+    return userSubs
                     
 
 
@@ -166,7 +168,7 @@ async def main():
         await load_user_picks(conn, users, gameweek)
 
         #and finally create a live table
-        await update_user_points(conn, users, gameweek)
+        await update_user_points(conn, users, gameweek, subs)
 
 
 asyncio.run(main())
