@@ -79,12 +79,13 @@ async def sub_is_valid(playerId, subPlayerId, userPicks):
     #need to check formation
     return True
 
-async def get_sub(playerId, subs, userPicks):
+async def get_sub(playerId, subs, userPicks, playerData):
     for pick in userPicks:
         subPlayerId = pick["element"]
-        if (pick['position'] > 11 and subPlayerId not in subs):
-            if await sub_is_valid(playerId, subPlayerId, userPicks):
+        if (pick['position'] > 11 and subPlayerId not in subs and subPlayerId in playerData):
+            if (playerData[subPlayerId][2] != 0) and await sub_is_valid(playerId, subPlayerId, userPicks):
                 return subPlayerId
+    return 0
         
 
 async def _calc_auto_subs(fpl, users, gameweek, playerData):
@@ -120,9 +121,9 @@ async def _calc_auto_subs(fpl, users, gameweek, playerData):
                 #print(playerData)
                 if (tmp[playerId] and pick['position'] <= 11 and playerData[playerId][3] == 0):
                     print("didnt play: %s %s" % (userObj.id, pick))
-                    sub = await get_sub(playerId, subs, userPicks[gameweek])
-                    if (sub > 0):
-                        subs[sub] = True
+                    subPlayerId = await get_sub(playerId, subs, userPicks[gameweek].copy(), playerData)
+                    if (subPlayerId > 0):
+                        subs[subPlayerId] = True
             userSubs[userObj.id] = subs
     return userSubs
                     
