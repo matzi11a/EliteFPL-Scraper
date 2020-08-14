@@ -49,6 +49,7 @@ def create_player_points_table(conn):
                 gameweek integer NOT NULL,
                 player_id integer NOT NULL,
                 points integer NOT NULL,
+                minutes integer,
                 UNIQUE(gameweek, player_id) ON CONFLICT REPLACE
             );
     """
@@ -67,8 +68,8 @@ def create_table(conn, create_table_sql):
         print(e)
 
 def add_live_points(conn, data):
-    sql = ''' REPLACE INTO live_player_points(gameweek, player_id, points)
-              VALUES(?,?,?) '''
+    sql = ''' REPLACE INTO live_player_points(gameweek, player_id, points, minutes)
+              VALUES(?, ?, ?, ?) '''
     cur = conn.cursor()
     cur.execute(sql, data)
     conn.commit()
