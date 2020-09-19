@@ -5,7 +5,8 @@ import argparse
 from fpl import FPL
 from fpl.utils import get_current_gameweek
 
-from db import create_connection, add_pick, create_picks_table, create_player_points_table, add_live_points, create_live_table, update_live_scores
+from db import create_connection, add_pick, create_picks_table, create_player_points_table, add_live_points, \
+    create_live_table, update_live_scores, select_live_scores
 
 
 async def load_users(fpl, leagueObj, gameweek):
@@ -168,7 +169,7 @@ async def main():
     async with aiohttp.ClientSession() as session:
         fpl = FPL(session)
         await fpl.login(args.email, args.password)
-        leagueObj = await fpl.get_classic_league(345)
+        leagueObj = await fpl.get_classic_league(30724)
         #print(leagueObj)
         
         if args.gameweek > 0:
@@ -190,6 +191,8 @@ async def main():
 
         #and finally create a live table
         await update_user_points(conn, users, gameweek, subs)
+
+        select_live_scores(conn, gameweek)
 
 
 asyncio.run(main())

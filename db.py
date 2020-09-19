@@ -120,3 +120,10 @@ def update_live_scores(conn, gameweek, userId, autoSubsArr, bboostActive):
     conn.commit()
     return cur.lastrowid
     
+def select_live_scores(conn, gameweek):
+    sql = ''' SELECT * FROM live_table WHERE gameweek = ? '''
+    cur = conn.cursor()
+    cur.execute(sql, [gameweek])
+    result = cur.fetchall()
+    for x in result:
+      print(x)
