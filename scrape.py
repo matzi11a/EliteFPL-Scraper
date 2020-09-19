@@ -194,7 +194,7 @@ async def main():
         await update_user_points(conn, users, gameweek, subs)
 
         output = select_live_scores(conn, gameweek)
-        with open('/tmp/out.json', 'w') as outfile:
+        with open('/usr/share/nginx/html/out.json', 'w') as outfile:
             json.dump(output, outfile)
 
 
