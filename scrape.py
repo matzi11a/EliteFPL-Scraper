@@ -12,7 +12,7 @@ async def load_users(fpl, leagueObj, gameweek):
     users = []
     pageCounter = 1
     while True:
-        leaguePage = await leagueObj.get_standings(pageCounter, 0, gameweek)
+        leaguePage = await leagueObj.get_standings(pageCounter, 1, gameweek)
         
         for resultUser in leaguePage["results"]:
             userObj = await fpl.get_user(resultUser["entry"])
