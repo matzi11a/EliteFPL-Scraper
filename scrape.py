@@ -66,6 +66,7 @@ async def update_user_points(conn, users, gameweek, subs):
         #print(userActiveChips)
         update_live_scores(conn, gameweek, userObj.id, autoSubsArr, userActiveChips == 'bboost')
 
+
 async def process_team(team, tmp, finished):
     for player in await team.get_players():
         #print(player)
@@ -74,16 +75,36 @@ async def process_team(team, tmp, finished):
         else:
             tmp[player.id] = finished
 
-async def sub_is_valid(playerId, subPlayerId, userPicks):
-    print("Subbin in %d for %d" % (subPlayerId, playerId))
-    #need to check formation
-    return True
 
-async def get_sub(playerId, subs, userPicks, playerData):
+async def sub_is_valid(fpl, playerId, subPlayerId, userPicks):
+    print("Subbin in %d for %d" % (subPlayerId, playerId))
+    valid_formations = {"1-3-5-2", "1-4-4-2", "1-4-5-2", "1-3-4-3", "1-4-3-3", "1-5-2-3", "1-5-3-1"}
+    formation = {}
+    for pick in userPicks:
+        if ((pick['position'] <= 11 or pick['element'] == subPlayerId) and (pick['element'] != playerId)):
+            player = await fpl.get_player(pick['element'])
+            if formation[player['element_type']]:
+                formation[player['element_type']] = formation[player['element_type']] + 1
+            else:
+                formation[player['element_type']] = 1
+    print(vars(formation))
+
+    #    1: "Goalkeeper",
+    #    2: "Defender",
+    #    3: "Midfielder",
+    #    4: "Forward"
+    formation_string = "{}-{}-{}-{}".format(formation[1], formation[2], formation[3], formation[4])
+
+    print(formation_string in valid_formations)
+
+    return formation_string in valid_formations
+
+
+async def get_sub(fpl, playerId, subs, userPicks, playerData):
     for pick in userPicks:
         subPlayerId = pick["element"]
         if (pick['position'] > 11 and subPlayerId not in subs and subPlayerId in playerData):
-            if (playerData[subPlayerId][2] != 0) and await sub_is_valid(playerId, subPlayerId, userPicks):
+            if (playerData[subPlayerId][2] != 0) and await sub_is_valid(fpl, playerId, subPlayerId, userPicks):
                 return subPlayerId
     return 0
         
@@ -121,12 +142,11 @@ async def _calc_auto_subs(fpl, users, gameweek, playerData):
                 #print(playerData)
                 if (tmp[playerId] and pick['position'] <= 11 and playerData[playerId][3] == 0):
                     print("didnt play: %s %s" % (userObj.id, pick))
-                    subPlayerId = await get_sub(playerId, subs, userPicks[gameweek].copy(), playerData)
+                    subPlayerId = await get_sub(fpl, playerId, subs, userPicks[gameweek].copy(), playerData)
                     if (subPlayerId > 0):
                         subs[subPlayerId] = True
             userSubs[userObj.id] = subs
     return userSubs
-                    
 
 
 async def main():
