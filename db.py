@@ -125,5 +125,4 @@ def select_live_scores(conn, gameweek):
     cur = conn.cursor()
     cur.execute(sql, [gameweek])
     result = cur.fetchall()
-    for x in result:
-      print(x)
+    return result

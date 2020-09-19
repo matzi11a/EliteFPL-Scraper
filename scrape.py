@@ -1,6 +1,7 @@
 import asyncio
 import aiohttp
 import argparse
+import json
 
 from fpl import FPL
 from fpl.utils import get_current_gameweek
@@ -192,7 +193,9 @@ async def main():
         #and finally create a live table
         await update_user_points(conn, users, gameweek, subs)
 
-        select_live_scores(conn, gameweek)
+        output = select_live_scores(conn, gameweek)
+        with open('/tmp/out.json', 'w') as outfile:
+            json.dump(output, outfile)
 
 
 asyncio.run(main())
