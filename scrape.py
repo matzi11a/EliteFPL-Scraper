@@ -2,6 +2,7 @@ import asyncio
 import aiohttp
 import argparse
 import json
+import operator
 
 from fpl import FPL
 from fpl.utils import get_current_gameweek
@@ -39,20 +40,28 @@ async def get_player_points(fpl, gameweek):
     gameweekObj = await fpl.get_gameweek(gameweek, include_live=True, return_json=False)
     #print(gameweekObj.elements)
     playerPoints = {}
+    playerBonus = {}
     for playerId in gameweekObj.elements:
         points = 0
-        minutes = 0;
-        for detail in gameweekObj.elements[playerId]["explain"][0]["stats"]:
-            points += detail["points"]
-            if (detail["identifier"] == 'minutes'):            
-                minutes += detail["value"]
+        minutes = 0
+        bonus = False
+        for details in gameweekObj.elements[playerId]["explain"]:
+            for detail in details["stats"]:
+                points += detail["points"]
+                if (detail["identifier"] == 'minutes'):
+                    minutes += detail["value"]
+                if (detail["identifier"] == 'bonus'):
+                    bonus = True
+            playerBonus[detail['fixture']][playerId] = bonus
         playerPoints[playerId] = [gameweek, playerId, points, minutes]
-    return playerPoints
+    return playerPoints, playerBonus
+
 
 async def load_live_points(conn, data):
     for playerId in data:
         add_live_points(conn, data[playerId])
-    
+
+
 async def update_user_points(conn, users, gameweek, subs):
     for userObj in users:
         #print(vars(userObj))
@@ -83,7 +92,7 @@ async def sub_is_valid(fpl, playerId, subPlayerId, userPicks):
     valid_formations = {"1-3-5-2", "1-4-4-2", "1-4-5-2", "1-3-4-3", "1-4-3-3", "1-5-2-3", "1-5-4-1"}
     formation = {}
     for pick in userPicks:
-        if ((pick['position'] <= 11 or pick['element'] == subPlayerId) and (pick['element'] != playerId)):
+        if (pick['position'] <= 11 or pick['element'] == subPlayerId) and pick['element'] != playerId:
             player = await fpl.get_player(pick['element'])
             if formation[player['element_type']]:
                 formation[player['element_type']] = formation[player['element_type']] + 1
@@ -109,27 +118,60 @@ async def get_sub(fpl, playerId, subs, userPicks, playerData):
             if (playerData[subPlayerId][2] != 0) and await sub_is_valid(fpl, playerId, subPlayerId, userPicks):
                 return subPlayerId
     return 0
-        
 
-async def _calc_auto_subs(fpl, users, gameweek, playerData):
+
+def process_bps(fixtureId, playerPointsAndBonus, stats):
+    playerData = playerPointsAndBonus[0]
+    playerBonus = playerPointsAndBonus[1]
+    bpsPerPlayer = {}
+    for stat in stats:
+        if stat['identifier'] == 'bps':
+            for entry in stat['a']:
+                if bpsPerPlayer[entry['value']]:
+                    bpsPerPlayer[entry['value']].append(entry['value'])
+                else:
+                    bpsPerPlayer[entry['value']] = [entry['value']]
+            for entry in stat['h']:
+                if bpsPerPlayer[entry['value']]:
+                    bpsPerPlayer[entry['value']].append(entry['value'])
+                else:
+                    bpsPerPlayer[entry['value']] = [entry['value']]
+    i = 3
+    for bps in sorted(bpsPerPlayer):
+        for element in bpsPerPlayer[bps]:
+            if not playerBonus[fixtureId][element]:
+                playerData[element][2] = playerData[element][2] + i
+
+        if --i == 0:
+            return
+
+
+async def process_fixtures(fpl, gameweek, playerPointsAndBonus):
     fixtures = await fpl.get_fixtures_by_gameweek(gameweek)
     tmp = {}
     for fixture in fixtures:
+        if fixture['finished_provisional']:
+            process_bps(fixture['id'], playerPointsAndBonus, fixture['stats'])
+
         homeTeam = await fpl.get_team(fixture.team_h)
         for player in await homeTeam.get_players():
-            #print(player)
-            if (player.id in tmp):
-                tmp[player.id] = tmp[player.id] and fixture.finished
+            # print(player)
+            if player.id in tmp:
+                tmp[player.id] = tmp[player.id] and fixture.finished_provisional
             else:
-                tmp[player.id] = fixture.finished
+                tmp[player.id] = fixture.finished_provisional
+
         awayTeam = await fpl.get_team(fixture.team_a)
         for player in await awayTeam.get_players():
-            #print(player)
-            if (player.id in tmp):
-                tmp[player.id] = tmp[player.id] and fixture.finished
+            # print(player)
+            if player.id in tmp:
+                tmp[player.id] = tmp[player.id] and fixture.finished_provisional
             else:
-                tmp[player.id] = fixture.finished
+                tmp[player.id] = fixture.finished_provisional
+    return tmp
 
+
+async def _calc_auto_subs(fpl, users, gameweek, playerData, fixtureFinished):
     #for pid, fixtureFinished in tmp.items():
     #    playerData[pid].append(fixtureFinished)
     userSubs = {}
@@ -142,7 +184,7 @@ async def _calc_auto_subs(fpl, users, gameweek, playerData):
             for pick in userPicks[gameweek]:
                 playerId = pick["element"]
                 #print(playerData)
-                if (tmp[playerId] and pick['position'] <= 11 and playerData[playerId][3] == 0):
+                if (fixtureFinished[playerId] and pick['position'] <= 11 and playerData[playerId][3] == 0):
                     print("didnt play: %s %s" % (userObj.id, pick))
                     subPlayerId = await get_sub(fpl, playerId, subs, userPicks[gameweek].copy(), playerData)
                     if (subPlayerId > 0):
@@ -181,12 +223,12 @@ async def main():
         users = await load_users(fpl, leagueObj, gameweek)
         
         
-        playerPoints = await get_player_points(fpl, gameweek)
-        await load_live_points(conn, playerPoints)
+        playerPointsAndBonus = await get_player_points(fpl, gameweek)
+        await load_live_points(conn, playerPointsAndBonus[0])
         
-        
-        subs = await _calc_auto_subs(fpl, users, gameweek, playerPoints)
-        
+        fixtureFinished = await process_fixtures(fpl, gameweek, playerPointsAndBonus)
+
+        subs = await _calc_auto_subs(fpl, users, gameweek, playerPointsAndBonus[0], fixtureFinished)
 
         await load_user_picks(conn, users, gameweek)
 
