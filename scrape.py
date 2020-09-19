@@ -2,7 +2,7 @@ import asyncio
 import aiohttp
 import argparse
 import json
-import operator
+from collections import defaultdict
 
 from fpl import FPL
 from fpl.utils import get_current_gameweek
@@ -36,11 +36,18 @@ async def load_user_picks(conn, users, gameweek):
                 data = [gameweek, userObj.id, pick["element"], pick["position"], pick["multiplier"], pick["is_captain"], pick["is_vice_captain"]]
                 add_pick(conn, data)
 
+def multi_dict(K, type):
+    if K == 1:
+        return defaultdict(type)
+    else:
+        return defaultdict(lambda: multi_dict(K-1, type))
+
+
 async def get_player_points(fpl, gameweek):
     gameweekObj = await fpl.get_gameweek(gameweek, include_live=True, return_json=False)
     #print(gameweekObj.elements)
     playerPoints = {}
-    playerBonus = {}
+    playerBonus = multi_dict(2, int)
     for playerId in gameweekObj.elements:
         points = 0
         minutes = 0
@@ -52,6 +59,7 @@ async def get_player_points(fpl, gameweek):
                     minutes += detail["value"]
                 if (detail["identifier"] == 'bonus'):
                     bonus = True
+
             playerBonus[details['fixture']][playerId] = bonus
         playerPoints[playerId] = [gameweek, playerId, points, minutes]
     return playerPoints, playerBonus
