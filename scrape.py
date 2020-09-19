@@ -132,18 +132,19 @@ def process_bps(fixtureId, playerPointsAndBonus, stats):
     playerData = playerPointsAndBonus[0]
     playerBonus = playerPointsAndBonus[1]
     bpsPerPlayer = {}
-    for stat in stats:
-        if stat['identifier'] == 'bps':
-            for entry in stat['a']:
-                if bpsPerPlayer[entry['value']]:
-                    bpsPerPlayer[entry['value']].append(entry['value'])
+    for stat, value in stats.items():
+        if stat == "bps":
+            for entry in value['a']:
+                if entry['value'] in bpsPerPlayer:
+                    bpsPerPlayer[entry['value']].append(entry['element'])
                 else:
-                    bpsPerPlayer[entry['value']] = [entry['value']]
-            for entry in stat['h']:
-                if bpsPerPlayer[entry['value']]:
-                    bpsPerPlayer[entry['value']].append(entry['value'])
+                    bpsPerPlayer[entry['value']] = [entry['element']]
+            for entry in value['h']:
+                if entry['value'] in bpsPerPlayer:
+                    bpsPerPlayer[entry['value']].append(entry['element'])
                 else:
-                    bpsPerPlayer[entry['value']] = [entry['value']]
+                    bpsPerPlayer[entry['value']] = [entry['element']]
+
     i = 3
     for bps in sorted(bpsPerPlayer):
         for element in bpsPerPlayer[bps]:
@@ -158,8 +159,9 @@ async def process_fixtures(fpl, gameweek, playerPointsAndBonus):
     fixtures = await fpl.get_fixtures_by_gameweek(gameweek)
     tmp = {}
     for fixture in fixtures:
-        if fixture['finished_provisional']:
-            process_bps(fixture['id'], playerPointsAndBonus, fixture['stats'])
+        if fixture.finished_provisional:
+            #print(vars(fixture))
+            process_bps(fixture.id, playerPointsAndBonus, fixture.stats)
 
         homeTeam = await fpl.get_team(fixture.team_h)
         for player in await homeTeam.get_players():
@@ -229,12 +231,12 @@ async def main():
             gameweek = await get_current_gameweek(fpl.session)
                 
         users = await load_users(fpl, leagueObj, gameweek)
-        
-        
+
         playerPointsAndBonus = await get_player_points(fpl, gameweek)
-        await load_live_points(conn, playerPointsAndBonus[0])
-        
+
         fixtureFinished = await process_fixtures(fpl, gameweek, playerPointsAndBonus)
+
+        await load_live_points(conn, playerPointsAndBonus[0])
 
         subs = await _calc_auto_subs(fpl, users, gameweek, playerPointsAndBonus[0], fixtureFinished)
 
