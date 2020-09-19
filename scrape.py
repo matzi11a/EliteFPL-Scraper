@@ -52,7 +52,7 @@ async def get_player_points(fpl, gameweek):
                     minutes += detail["value"]
                 if (detail["identifier"] == 'bonus'):
                     bonus = True
-            playerBonus[detail['fixture']][playerId] = bonus
+            playerBonus[details['fixture']][playerId] = bonus
         playerPoints[playerId] = [gameweek, playerId, points, minutes]
     return playerPoints, playerBonus
 
