@@ -92,11 +92,11 @@ def add_pick(conn, data):
     conn.commit()
     return cur.lastrowid
 
-def update_live_scores(conn, gameweek, userId, autoSubsArr, bboostActive):
+def update_live_scores(conn, gameweek, userId, autoSubsArr, bboostActive, xferCost):
     sql = ''' REPLACE INTO live_table (
                 gameweek, user_id, event_total
             ) select 
-                live_player_points.gameweek, picks.user_id, sum(live_player_points.points * picks.multiplier) as event_total 
+                live_player_points.gameweek, picks.user_id, sum(live_player_points.points * picks.multiplier) - ? as event_total 
             from 
                 live_player_points 
             left join 
@@ -116,7 +116,7 @@ def update_live_scores(conn, gameweek, userId, autoSubsArr, bboostActive):
     playerLimit = 15 if bboostActive else 11
     if autoSubsArr:
         print("sql subs %s " % ','.join(str(v) for v in autoSubsArr))
-    cur.execute(sql, [gameweek, userId, playerLimit, ','.join(str(v) for v in autoSubsArr)])
+    cur.execute(sql, [xferCost, gameweek, userId, playerLimit, ','.join(str(v) for v in autoSubsArr)])
     conn.commit()
     return cur.lastrowid
     
