@@ -80,7 +80,7 @@ async def process_team(team, tmp, finished):
 
 async def sub_is_valid(fpl, playerId, subPlayerId, userPicks):
     print("Subbin in %d for %d" % (subPlayerId, playerId))
-    valid_formations = {"1-3-5-2", "1-4-4-2", "1-4-5-2", "1-3-4-3", "1-4-3-3", "1-5-2-3", "1-5-4-1", "1-5-3-2"}
+    valid_formations = {"1-3-5-2", "1-4-4-2", "1-4-5-2", "1-3-4-3", "1-4-3-3", "1-5-2-3", "1-5-4-1"}
     formation = {}
     for pick in userPicks:
         if ((pick['position'] <= 11 or pick['element'] == subPlayerId) and (pick['element'] != playerId)):
